@@ -1,0 +1,10 @@
+.env
+*.session
+*.session-journal
+bot_database.db
+downloads/
+thumbnails/
+covers/
+__pycache__/
+*.pyc
+video_wm/
