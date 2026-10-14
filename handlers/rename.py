@@ -32,6 +32,7 @@ from config import COVER_DIR, DOWNLOAD_DIR, MAX_FILE_SIZE, PENDING_TTL, THUMB_DI
 from database import db
 from handlers.cover import QUALITY_TIP, save_cover_from_message
 from handlers import video as video_handlers
+from handlers import watermark as watermark_handlers
 from handlers.thumbnail import offer_thumb_confirmation
 from utils.helpers import (
     default_file_name,
@@ -375,6 +376,14 @@ def register(app: Client) -> None:
     async def incoming_file(client: Client, message: Message) -> None:
         await db.ensure_user(message.from_user.id)
 
+        # A PDF sent while the user is previewing their watermark rules.
+        if (
+            get_state(message.from_user.id).state == UserState.AWAITING_WATERMARK_PREVIEW_PDF
+            and message.document
+        ):
+            await watermark_handlers.process_preview_pdf(client, message)
+            return
+
         # An image sent as a *file* while the bot waits for a photo.
         if (
             image_document_hook is not None
@@ -587,6 +596,15 @@ async def _edit_video_step(
     return file_path, new_name, notes
 
 
+def _sent_file_id(sent) -> Optional[str]:
+    """Telegram file_id of the media in the message we just uploaded."""
+    for attr in ("video", "audio", "document"):
+        media = getattr(sent, attr, None)
+        if media is not None:
+            return media.file_id
+    return None
+
+
 # --------------------------------------------------------------------- #
 # Download -> edit -> upload
 # --------------------------------------------------------------------- #
@@ -624,6 +642,7 @@ async def _process_and_reupload(
                 )
             except Exception as exc:
                 logger.exception("Download failed for user %s", user_id)
+                await db.log_event(user_id, "file_fail", f"فشل التحميل: {pending.file_name}")
                 await status.edit_text(f"❌ فشل التحميل: {exc}")
                 return
 
@@ -648,7 +667,7 @@ async def _process_and_reupload(
 
                     async def on_stage(stage: str) -> None:
                         text = (
-                            "🧽 جارٍ إزالة العلامة المائية..."
+                            "🧽 جارٍ تعديل العلامة المائية..."
                             if stage == "watermark"
                             else "🖼 جارٍ وضع الصورة في أول صفحة..."
                         )
@@ -666,7 +685,7 @@ async def _process_and_reupload(
                         on_stage=on_stage,
                     )
                     if result.watermarks_removed:
-                        notes.append(f"🧽 أُزيلت {result.watermarks_removed} علامة مائية")
+                        notes.append(f"🧽 اتعدّلت {result.watermarks_removed} علامة مائية")
                     if result.cover_added:
                         notes.append("🖼 أُضيفت الصورة في أول صفحة")
                     notes.extend(f"⚠️ {w}" for w in result.warnings)
@@ -717,7 +736,7 @@ async def _process_and_reupload(
 
             # ---------------- upload (verified) ----------------
             try:
-                await send_verified(
+                sent = await send_verified(
                     client,
                     chat_id,
                     pending.media_type,
@@ -732,13 +751,25 @@ async def _process_and_reupload(
                 )
             except Exception as exc:
                 logger.exception("Upload failed for user %s", user_id)
+                await db.log_event(user_id, "file_fail", f"فشل الرفع: {new_name} — {str(exc)[:100]}")
                 await status.edit_text(f"❌ فشل الرفع: {exc}")
                 return
 
             await db.incr_files(user_id)
+            # Keep a record (with the Telegram file_id) so the owner can browse
+            # and download every file the bot edited.
+            try:
+                await db.log_file(
+                    user_id, pending.file_name, new_name, pending.media_type, actual_size,
+                    _sent_file_id(sent), "\n".join(notes) or None,
+                )
+                await db.log_event(user_id, "file_done", f"{pending.file_name} ← {new_name}")
+            except Exception:
+                logger.exception("Could not log the edited file of user %s", user_id)
             await status.edit_text("✅ تم بنجاح!" + ("\n\n" + "\n".join(notes) if notes else ""))
     except Exception as exc:
         logger.exception("Processing failed for user %s", user_id)
+        await db.log_event(user_id, "file_fail", f"خطأ أثناء المعالجة: {str(exc)[:120]}")
         try:
             await status.edit_text(f"❌ حدث خطأ: {exc}")
         except Exception:

@@ -14,10 +14,14 @@ import logging
 from pyrogram import Client
 
 import config
+from utils import button_colors
 from database.db import init_db
 from handlers import (
-    admin, caption, channel, common, cover, guard, rename, start, thumbnail, video, watermark,
+    admin, caption, channel, common, cover, guard, inbox, rename, start, thumbnail, video,
+    watermark,
 )
+
+button_colors.install()  # colour every inline button (needs Kurigram)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,6 +53,7 @@ def build_client() -> Client:
     # users / maintenance mode before any other handler sees the update.
     guard.register(app)
     admin.register(app)
+    inbox.register(app)  # user replies in an owner<->user chat
     start.register(app)
     thumbnail.register(app)
     caption.register(app)

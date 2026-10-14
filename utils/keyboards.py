@@ -56,9 +56,59 @@ def watermark_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("➕ تعيين/تحديث الأنماط", callback_data="watermark:set")],
+            [InlineKeyboardButton("🔍 معاينة على ملف PDF", callback_data="watermark:preview")],
+            [
+                InlineKeyboardButton("🔤 الخط", callback_data="watermark:fonts"),
+                InlineKeyboardButton("🎨 اللون", callback_data="watermark:colors"),
+            ],
             [InlineKeyboardButton("👁 عرض الأنماط الحالية", callback_data="watermark:show")],
             [InlineKeyboardButton("🗑 حذف الأنماط", callback_data="watermark:del")],
             [InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="menu:main")],
+        ]
+    )
+
+
+def watermark_fonts_kb(current: str = "") -> InlineKeyboardMarkup:
+    from utils.pdf_watermark import FONTS
+
+    buttons = [
+        InlineKeyboardButton(
+            ("✅ " if key == current else "") + f"{i}. {label.split(' — ')[0]}",
+            callback_data=f"watermark:font:{key}",
+        )
+        for i, (key, (_f, label)) in enumerate(FONTS.items(), start=1)
+    ]
+    rows = [buttons[i:i + 3] for i in range(0, len(buttons), 3)]
+    rows.append([InlineKeyboardButton("🎨 اللون", callback_data="watermark:colors")])
+    rows.append([InlineKeyboardButton("🔙 رجوع", callback_data="menu:watermark")])
+    return InlineKeyboardMarkup(rows)
+
+
+def watermark_colors_kb(current: str = "") -> InlineKeyboardMarkup:
+    from utils.pdf_watermark import COLORS
+
+    buttons = [
+        InlineKeyboardButton(
+            ("✅ " if hexa == current else "") + label, callback_data=f"watermark:color:{key}"
+        )
+        for key, (hexa, label) in COLORS.items()
+    ]
+    rows = [buttons[i:i + 3] for i in range(0, len(buttons), 3)]
+    rows.append([InlineKeyboardButton("🪄 نفس لون النص الأصلي", callback_data="watermark:color:auto")])
+    rows.append([InlineKeyboardButton("🔤 الخط", callback_data="watermark:fonts")])
+    rows.append([InlineKeyboardButton("🔙 رجوع", callback_data="menu:watermark")])
+    return InlineKeyboardMarkup(rows)
+
+
+def watermark_preview_done_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔍 معاينة ملف تاني", callback_data="watermark:preview")],
+            [
+                InlineKeyboardButton("🔤 الخط", callback_data="watermark:fonts"),
+                InlineKeyboardButton("🎨 اللون", callback_data="watermark:colors"),
+            ],
+            [InlineKeyboardButton("🧽 قائمة العلامة المائية", callback_data="menu:watermark")],
         ]
     )
 

@@ -27,6 +27,7 @@ class UserState(Enum):
     AWAITING_THUMB_CONFIRM = auto()
     AWAITING_CAPTION_TEXT = auto()
     AWAITING_WATERMARK_PATTERNS = auto()
+    AWAITING_WATERMARK_PREVIEW_PDF = auto()
     AWAITING_CHANNEL_BIND_ID = auto()
     AWAITING_CHANNEL_UNBIND_ID = auto()
     AWAITING_CHANNEL_THUMB_ID = auto()
@@ -46,6 +47,10 @@ class UserState(Enum):
     AWAITING_ADMIN_BROADCAST = auto()
     AWAITING_ADMIN_WELCOME = auto()
     AWAITING_ADMIN_DM = auto()
+    AWAITING_ADMIN_DURATION = auto()
+    AWAITING_ADMIN_LIMIT = auto()
+    AWAITING_ADMIN_BANTEXT = auto()
+    ADMIN_CHAT = auto()  # owner is chatting with a user through the bot
     AWAITING_VIDEO_WM_TEXT = auto()
     AWAITING_VIDEO_WM_IMAGE = auto()
     AWAITING_VIDEO_TITLE_TEMPLATE = auto()

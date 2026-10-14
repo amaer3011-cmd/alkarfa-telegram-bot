@@ -1,7 +1,7 @@
 """
 utils/pdf_pipeline.py
 =======================
-One place that applies every PDF edit (watermark removal, then the
+One place that applies every PDF edit (watermark removal/replacement, then the
 first-page image) so the private chat flow and the channel auto-formatter
 behave identically.
 
@@ -18,7 +18,7 @@ from typing import Callable, Optional
 
 from utils.integrity import inspect_pdf, verify_pdf
 from utils.pdf_cover import MODE_INSERT, MODE_REPLACE, add_cover_page, normalize_mode
-from utils.pdf_watermark import parse_patterns, remove_watermarks
+from utils.pdf_watermark import parse_patterns, parse_style, remove_watermarks
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ async def process_pdf(
     loop = asyncio.get_running_loop()
 
     patterns = parse_patterns(watermark_patterns)
+    style = parse_style(watermark_patterns)
     use_cover = bool(cover_path and os.path.exists(cover_path))
     if not patterns and not use_cover:
         return result
@@ -73,11 +74,11 @@ async def process_pdf(
                 await on_stage("watermark")
             try:
                 result.watermarks_removed = await loop.run_in_executor(
-                    None, remove_watermarks, pdf_path, patterns, watermark_progress
+                    None, remove_watermarks, pdf_path, patterns, watermark_progress, style
                 )
             except Exception as exc:
                 logger.exception("Watermark removal failed")
-                result.warnings.append(f"تعذّرت إزالة العلامة المائية ({exc})")
+                result.warnings.append(f"تعذّر تعديل العلامة المائية ({exc})")
 
         if use_cover:
             if on_stage:

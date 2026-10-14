@@ -183,10 +183,14 @@ async def process_channel_watermark_id(client: Client, message: Message) -> None
 
     set_state(user_id, UserState.AWAITING_CHANNEL_WATERMARK_PATTERNS, channel_id=channel_id)
     await message.reply_text(
-        "🧽 أرسل الآن أنماط إزالة العلامة المائية، **سطر لكل نمط**.\n\n"
-        "`نص عادي` — بحث حرفي\n"
+        "🧽 أرسل الآن قواعد العلامة المائية للقناة، **سطر لكل قاعدة**.\n\n"
+        "`نص عادي` — حذف حرفي\n"
         "`regex:النمط` — تعبير نمطي\n"
-        "`link:جزء من الرابط` — حذف الروابط المضمّنة المطابقة",
+        "`link:جزء من الرابط` — حذف الروابط المضمّنة المطابقة\n"
+        "أضف `=> البديل` للاستبدال بدل الحذف، مثال: `قناة_قديمة@ => قناة الكرفة`\n"
+        "`link:t.me/old => https://t.me/new` — تغيير وجهة الرابط\n"
+        "اختياري: سطر `font:amiri` (أو aref, rakkas, lalezar, tajawal, almarai, katibeh, "
+        "mirza, scheherazade) وسطر `color:#C0392B` لتحديد شكل النص البديل.",
         reply_markup=cancel_kb(),
     )
 

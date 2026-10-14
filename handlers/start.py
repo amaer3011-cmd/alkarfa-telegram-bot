@@ -14,6 +14,7 @@ from pyrogram.types import CallbackQuery, Message
 import config
 from database import db
 from utils.keyboards import help_kb, main_menu_kb
+from utils.state import clear_state
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ def register(app: Client) -> None:
     async def start_cmd(client: Client, message: Message) -> None:
         await db.ensure_user(message.from_user.id)
         uid = message.from_user.id
+        clear_state(uid)  # /start also leaves any open flow (e.g. the owner's chat mode)
         await message.reply_text(
             welcome_text(),
             reply_markup=main_menu_kb(is_admin(uid), config.is_owner(uid)),
