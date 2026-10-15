@@ -5,28 +5,47 @@ Every inline keyboard the bot shows lives here, in one place, so the
 button layout and Arabic labels stay consistent across handlers.
 """
 
+from pyrogram.enums import ButtonStyle
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+import config
+
+BLUE, GREEN, RED = ButtonStyle.PRIMARY, ButtonStyle.SUCCESS, ButtonStyle.DANGER
+
+
+def developer_button() -> InlineKeyboardButton:
+    """Opens the developer's Telegram profile directly (a URL button, no bot round-trip)."""
+    return InlineKeyboardButton("👨‍💻 Developer", url=config.DEVELOPER_URL, style=GREEN)
 
 
 def main_menu_kb(is_admin: bool = False, is_owner: bool = False) -> InlineKeyboardMarkup:
     rows = [
-        [InlineKeyboardButton("🖼 الصورة المصغرة", callback_data="menu:thumb")],
-        [InlineKeyboardButton("📄 صورة أول صفحة في الـ PDF", callback_data="menu:cover")],
-        [InlineKeyboardButton("✏️ التسمية التوضيحية", callback_data="menu:caption")],
-        [InlineKeyboardButton("🧽 إزالة العلامة المائية", callback_data="menu:watermark")],
-        [InlineKeyboardButton("🎬 إعدادات الفيديو", callback_data="menu:video")],
+        [
+            InlineKeyboardButton("🖼 الصورة المصغرة", callback_data="menu:thumb", style=BLUE),
+            InlineKeyboardButton("✏️ التسمية التوضيحية", callback_data="menu:caption", style=BLUE),
+        ],
+        [
+            InlineKeyboardButton("📄 غلاف الـ PDF", callback_data="menu:cover", style=GREEN),
+            InlineKeyboardButton("🧽 العلامة المائية", callback_data="menu:watermark", style=GREEN),
+        ],
+        [InlineKeyboardButton("🎬 إعدادات الفيديو", callback_data="menu:video", style=BLUE)],
     ]
     if is_admin:
-        rows.append([InlineKeyboardButton("📢 إدارة القناة", callback_data="menu:channel")])
+        rows.append([InlineKeyboardButton("📢 إدارة القناة", callback_data="menu:channel", style=BLUE)])
     if is_owner:
-        rows.append([InlineKeyboardButton("👑 لوحة الأدمن", callback_data="admin:home")])
-    rows.append([InlineKeyboardButton("ℹ️ المساعدة", callback_data="menu:help")])
+        rows.append([InlineKeyboardButton("👑 لوحة الأدمن", callback_data="admin:home", style=RED)])
+    rows.append(
+        [InlineKeyboardButton("ℹ️ المساعدة", callback_data="menu:help", style=BLUE), developer_button()]
+    )
     return InlineKeyboardMarkup(rows)
 
 
 def help_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="menu:main")]]
+        [
+            [InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="menu:main", style=BLUE)],
+            [developer_button()],
+        ]
     )
 
 

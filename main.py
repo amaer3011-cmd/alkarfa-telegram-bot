@@ -14,7 +14,7 @@ import logging
 from pyrogram import Client
 
 import config
-from utils import button_colors
+from utils import button_colors, fast_transfer
 from database.db import init_db
 from handlers import (
     admin, caption, channel, common, cover, guard, inbox, rename, start, thumbnail, video,
@@ -22,6 +22,7 @@ from handlers import (
 )
 
 button_colors.install()  # colour every inline button (needs Kurigram)
+fast_transfer.patch_upload_workers()  # more parallel upload parts per file
 
 logging.basicConfig(
     level=logging.INFO,
@@ -92,7 +93,13 @@ def main() -> None:
     # it open (don't close it) across both `_startup()` and `app.run()`,
     # which is itself just a thin `loop.run_until_complete(...)` wrapper
     # and will happily reuse this same loop.
-    loop = asyncio.new_event_loop()
+    try:  # uvloop is a drop-in, noticeably faster event loop (Linux/macOS)
+        import uvloop
+
+        loop = uvloop.new_event_loop()
+        logger.info("Using uvloop.")
+    except Exception:
+        loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
         loop.run_until_complete(_startup())

@@ -40,6 +40,10 @@ def is_owner(user_id: int) -> bool:
     return user_id in OWNER_IDS
 
 
+# The "Developer" button on the main menu opens this Telegram profile.
+DEVELOPER_USERNAME: str = os.getenv("DEVELOPER_USERNAME", "A7med19_7").lstrip("@")
+DEVELOPER_URL: str = f"https://t.me/{DEVELOPER_USERNAME}"
+
 # Time zone used when the admin panel prints dates.
 TIMEZONE: str = os.getenv("TIMEZONE", "Africa/Cairo")
 
@@ -64,6 +68,10 @@ MAX_CONCURRENT_JOBS: int = 3
 # upload/download) and the number of update-handler workers.
 MAX_CONCURRENT_TRANSMISSIONS: int = 6
 UPDATE_WORKERS: int = 16
+# Speed: how many 1 MB chunks are requested at once when downloading, and how
+# many 512 KB parts are in flight per upload (Kurigram's default is 4).
+FAST_DOWNLOAD_WORKERS: int = int(os.getenv("FAST_DOWNLOAD_WORKERS", "8"))
+FAST_UPLOAD_WORKERS: int = int(os.getenv("FAST_UPLOAD_WORKERS", "8"))
 # Seconds a file waits for the user's decision before it is forgotten.
 PENDING_TTL: int = 30 * 60
 

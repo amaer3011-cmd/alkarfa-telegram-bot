@@ -54,6 +54,7 @@ from utils.pdf_cover import (
 from utils.pdf_pipeline import process_pdf
 from utils import video_edit as ve
 from utils.progress import Progress, VideoProgress, WatermarkProgress
+from utils.fast_transfer import fast_download
 from utils.sender import job_semaphore, send_verified, spawn, with_flood_retry
 from utils.state import UserState, clear_state, get_state, set_state
 
@@ -633,11 +634,10 @@ async def _process_and_reupload(
         async with sem:
             # ---------------- download ----------------
             try:
+                dl_progress = Progress(status, action="📥 جارٍ التحميل").update
                 file_path = await with_flood_retry(
-                    lambda: client.download_media(
-                        pending.message,
-                        file_name=download_path,
-                        progress=Progress(status, action="📥 جارٍ التحميل").update,
+                    lambda: fast_download(
+                        client, pending.message, download_path, progress=dl_progress
                     )
                 )
             except Exception as exc:

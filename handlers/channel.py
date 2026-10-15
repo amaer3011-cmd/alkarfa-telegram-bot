@@ -38,6 +38,7 @@ from utils.keyboards import cancel_kb, channel_menu_kb, main_menu_kb
 from handlers.cover import save_cover_from_message
 from utils.pdf_pipeline import process_pdf
 from utils.integrity import verify_download
+from utils.fast_transfer import fast_download
 from utils.sender import job_semaphore, send_verified, spawn, with_flood_retry
 from utils.state import UserState, clear_state, get_state, set_state
 
@@ -384,7 +385,7 @@ def register(app: Client) -> None:
         try:
             async with job_semaphore():
                 file_path = await with_flood_retry(
-                    lambda: client.download_media(message, file_name=download_path)
+                    lambda: fast_download(client, message, download_path)
                 )
                 verify_download(file_path, message.document.file_size or 0)
 
