@@ -31,6 +31,7 @@ from pyrogram.types import CallbackQuery, Message
 from config import COVER_DIR, DOWNLOAD_DIR, MAX_FILE_SIZE, PENDING_TTL, THUMB_DIR
 from database import db
 from handlers.cover import QUALITY_TIP, save_cover_from_message
+from handlers import studio as studio_handlers
 from handlers import video as video_handlers
 from handlers import watermark as watermark_handlers
 from handlers.thumbnail import offer_thumb_confirmation
@@ -43,6 +44,7 @@ from utils.helpers import (
     render_caption,
     sanitize_filename,
 )
+from utils import ui
 from utils.integrity import verify_download
 from utils.keyboards import cancel_kb, rename_prompt_kb
 from utils.pdf_cover import (
@@ -51,6 +53,7 @@ from utils.pdf_cover import (
     normalize_mode,
     render_first_page_thumbnail,
 )
+from utils.pdf_optimize import DEFAULT_LEVEL, optimize_pdf
 from utils.pdf_pipeline import process_pdf
 from utils import video_edit as ve
 from utils.progress import Progress, VideoProgress, WatermarkProgress
@@ -90,6 +93,7 @@ class PendingFile:
     cover_mode: Optional[str] = None  # None -> user's default mode
     wm_choice: str = WM_DEFAULT       # video watermark for this file
     video_title: Optional[str] = None  # None -> default template, "" -> no title
+    optimize: bool = False            # PDF: improve quality / shrink size for this file
 
     @property
     def is_video(self) -> bool:
@@ -199,8 +203,9 @@ def _inline(text: str) -> str:
 
 async def _render_prompt(pending: PendingFile, user, msg_id: int):
     text = (
-        f"📄 **الاسم الحالي:** `{pending.file_name}`\n"
-        f"📦 **الحجم:** {human_bytes(pending.file_size)}\n"
+        ui.header("📂", "ملفك وصل")
+        + f"\n📄 **الاسم** ‹ `{pending.file_name}`\n"
+        f"📦 **الحجم** ‹ {human_bytes(pending.file_size)}\n"
     )
     vs = None
     wm = title = None
@@ -223,7 +228,11 @@ async def _render_prompt(pending: PendingFile, user, msg_id: int):
             text += f"\n🖼 **أول صفحة:** ✅ {source}\n📌 **الوضع:** {MODE_LABELS[mode]}\n"
         else:
             text += "\n🖼 **أول صفحة:** بدون تعديل\n"
-    text += "\nماذا تريد أن تفعل؟"
+        text += (
+            "✨ **تحسين الجودة وأقل حجم:** ✅ مفعّل\n" if pending.optimize
+            else "✨ **تحسين الجودة وأقل حجم:** غير مفعّل\n"
+        )
+    text += f"\n{ui.THIN}\n✨ اختار اللي تحبه من الأزرار 👇"
     kb = rename_prompt_kb(
         msg_id,
         is_pdf=pending.is_pdf,
@@ -234,6 +243,7 @@ async def _render_prompt(pending: PendingFile, user, msg_id: int):
         is_video=pending.is_video,
         wm_active=wm is not None,
         title_active=title is not None,
+        optimize_active=pending.optimize,
     )
     return text, kb
 
@@ -377,6 +387,10 @@ def register(app: Client) -> None:
     async def incoming_file(client: Client, message: Message) -> None:
         await db.ensure_user(message.from_user.id)
 
+        # Inside the PDF studio (merge / split / images...): it takes the file.
+        if await studio_handlers.on_document(client, message):
+            return
+
         # A PDF sent while the user is previewing their watermark rules.
         if (
             get_state(message.from_user.id).state == UserState.AWAITING_WATERMARK_PREVIEW_PDF
@@ -449,7 +463,7 @@ def register(app: Client) -> None:
         user_id, msg_id = cq.from_user.id, _parse_cb(cq)
         _drop((user_id, msg_id))
         clear_state(user_id)
-        await cq.message.edit_text("❌ تم إلغاء العملية.")
+        await cq.message.edit_text(ui.cancelled())
         await cq.answer()
 
     @app.on_callback_query(filters.regex(r"^rename:cover:\d+$"))
@@ -500,6 +514,12 @@ def register(app: Client) -> None:
         def mutate(p: PendingFile, user) -> None:
             current = p.cover_mode or (user.cover_mode if user else None)
             p.cover_mode = next_mode(current)
+        await _change(cq, mutate)
+
+    @app.on_callback_query(filters.regex(r"^rename:opt:\d+$"))
+    async def rename_opt_cb(client: Client, cq: CallbackQuery) -> None:
+        def mutate(p: PendingFile, user) -> None:
+            p.optimize = not p.optimize
         await _change(cq, mutate)
 
     @app.on_callback_query(filters.regex(r"^rename:vwm:\d+$"))
@@ -564,7 +584,7 @@ async def _edit_video_step(
     queued = needs_encode and ve.encode_semaphore().locked()
     try:
         await status.edit_text(
-            "⏳ في قائمة معالجة الفيديو..." if queued else "🎬 جارٍ معالجة الفيديو..."
+            ui.screen("⏳", "في قائمة معالجة الفيديو", "دورك جاي حالًا 💕") if queued else ui.screen("🎬", "جارٍ معالجة الفيديو", "هتتحسن الجودة والتفاصيل ✨")
         )
     except Exception:
         pass
@@ -617,7 +637,7 @@ async def _process_and_reupload(
     sem = job_semaphore()
 
     status = await trigger_message.reply_text(
-        "⏳ في قائمة الانتظار..." if sem.locked() else "⏳ جارٍ بدء التحميل..."
+        ui.screen("⏳", "في قائمة الانتظار", "دورك جاي حالًا 💕") if sem.locked() else ui.screen("📥", "جارٍ بدء التحميل", "بجهّز ملفك...")
     )
 
     # The display name can be 200 Arabic characters (= 400 bytes), more than a
@@ -643,14 +663,14 @@ async def _process_and_reupload(
             except Exception as exc:
                 logger.exception("Download failed for user %s", user_id)
                 await db.log_event(user_id, "file_fail", f"فشل التحميل: {pending.file_name}")
-                await status.edit_text(f"❌ فشل التحميل: {exc}")
+                await status.edit_text(ui.error(exc, "حصلت مشكلة في التحميل، ابعت الملف تاني 💕"))
                 return
 
             try:
                 verify_download(file_path, pending.file_size)
             except Exception as exc:
                 logger.error("Download check failed for user %s: %s", user_id, exc)
-                await status.edit_text(f"❌ فشل التحميل: {exc}. ابعت الملف تاني.")
+                await status.edit_text(ui.error(exc, "حصلت مشكلة في التحميل، ابعت الملف تاني 💕"))
                 return
 
             user = await db.get_user(user_id)
@@ -667,9 +687,9 @@ async def _process_and_reupload(
 
                     async def on_stage(stage: str) -> None:
                         text = (
-                            "🧽 جارٍ تعديل العلامة المائية..."
+                            ui.screen("🧽", "جارٍ تعديل العلامة المائية", "ثواني وتخلص...")
                             if stage == "watermark"
-                            else "🖼 جارٍ وضع الصورة في أول صفحة..."
+                            else ui.screen("🖼", "جارٍ وضع الصورة", "بحط الصورة في أول صفحة...")
                         )
                         try:
                             await status.edit_text(text)
@@ -690,6 +710,37 @@ async def _process_and_reupload(
                         notes.append("🖼 أُضيفت الصورة في أول صفحة")
                     notes.extend(f"⚠️ {w}" for w in result.warnings)
 
+            # ---------------- PDF quality / size optimisation ----------------
+            if is_pdf and pending.optimize:
+                loop = asyncio.get_running_loop()
+                opt_path = file_path + ".opt"
+                try:
+                    try:
+                        await status.edit_text(ui.screen("✨", "جارٍ تحسين جودة الـ PDF", "بصغّر الحجم وأحافظ على الجودة..."))
+                    except Exception:
+                        pass
+                    res = await loop.run_in_executor(
+                        None, optimize_pdf, file_path, opt_path, DEFAULT_LEVEL,
+                        WatermarkProgress(status, loop, action="✨ جارٍ تحسين الـ PDF").report,
+                    )
+                    if res.improved:
+                        os.replace(opt_path, file_path)
+                        notes.append(
+                            f"✨ اتحسّن الـ PDF: {human_bytes(res.before)} ← {human_bytes(res.after)} "
+                            f"(وفّرنا {res.saved_percent:.0f}%)"
+                        )
+                    else:
+                        notes.append("ℹ️ الـ PDF ده متحسّن بالفعل، اتبعت زي ما هو")
+                except Exception as exc:
+                    logger.exception("PDF optimisation failed")
+                    notes.append(f"⚠️ تعذّر تحسين الـ PDF، اتبعت من غير تحسين ({str(exc)[:100]})")
+                finally:
+                    if os.path.exists(opt_path):
+                        try:
+                            os.remove(opt_path)
+                        except OSError:
+                            pass
+
             # ---------------- video edits (watermark / title) ----------------
             if pending.is_video:
                 vs = await db.get_video_settings(user_id)
@@ -701,7 +752,7 @@ async def _process_and_reupload(
                     notes.extend(video_notes)
 
             # ---------------- thumbnail / caption ----------------
-            await status.edit_text("⏳ جارٍ تجهيز الرفع...")
+            await status.edit_text(ui.screen("📤", "جارٍ تجهيز الرفع", "لحظات ويوصلك ملفك..."))
             thumb_path = user.thumbnail_path if user and _has_file(user.thumbnail_path) else None
             if thumb_path is None and is_pdf:
                 candidate = os.path.join(THUMB_DIR, f"auto_{user_id}_{pending.message.id}.jpg")
@@ -732,6 +783,7 @@ async def _process_and_reupload(
                 filename=new_name,
                 filesize=actual_size,
                 duration=duration,
+                link=user.custom_link if user else None,
             )
 
             # ---------------- upload (verified) ----------------
@@ -752,7 +804,7 @@ async def _process_and_reupload(
             except Exception as exc:
                 logger.exception("Upload failed for user %s", user_id)
                 await db.log_event(user_id, "file_fail", f"فشل الرفع: {new_name} — {str(exc)[:100]}")
-                await status.edit_text(f"❌ فشل الرفع: {exc}")
+                await status.edit_text(ui.error(exc, "حصلت مشكلة في الرفع، جرّب تاني 💕"))
                 return
 
             await db.incr_files(user_id)
@@ -766,12 +818,12 @@ async def _process_and_reupload(
                 await db.log_event(user_id, "file_done", f"{pending.file_name} ← {new_name}")
             except Exception:
                 logger.exception("Could not log the edited file of user %s", user_id)
-            await status.edit_text("✅ تم بنجاح!" + ("\n\n" + "\n".join(notes) if notes else ""))
+            await status.edit_text(ui.success("\n".join(notes)))
     except Exception as exc:
         logger.exception("Processing failed for user %s", user_id)
         await db.log_event(user_id, "file_fail", f"خطأ أثناء المعالجة: {str(exc)[:120]}")
         try:
-            await status.edit_text(f"❌ حدث خطأ: {exc}")
+            await status.edit_text(ui.error(exc))
         except Exception:
             pass
     finally:

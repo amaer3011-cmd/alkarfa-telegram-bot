@@ -131,32 +131,85 @@ def get_media_duration(file_path: str) -> Optional[int]:
     return None
 
 
+_WORD_JOINER = "\u2060"  # invisible; breaks accidental markdown delimiters
+
+
+def normalize_link(raw: str) -> Optional[str]:
+    """
+    Turn what the user typed into a clean https link, or None if it isn't one.
+    Accepts https://..., http://..., t.me/..., @username.
+    """
+    raw = (raw or "").strip().split()[0] if (raw or "").strip() else ""
+    if not raw or len(raw) > 300:
+        return None
+    if raw.startswith("@"):
+        name = raw[1:]
+        if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{3,31}", name):
+            return f"https://t.me/{name}"
+        return None
+    low = raw.lower()
+    if low.startswith(("t.me/", "telegram.me/", "www.")):
+        raw = "https://" + raw
+    elif not low.startswith(("https://", "http://")):
+        return None
+    if not re.fullmatch(r"https?://[^\s]+\.[^\s]+", raw):
+        return None
+    return raw.replace("(", "%28").replace(")", "%29")
+
+
+def link_markup(text: str, url: str) -> str:
+    """
+    `text` as a clickable link ("Create link") in Pyrogram's markdown. Characters of
+    `text` that would be read as markup are neutralised so the link can't break.
+    """
+    safe = text.replace("[", "［").replace("]", "］").replace("`", "'")
+    for ch in ("_", "*", "~", "-", "|"):
+        safe = safe.replace(ch * 2, ch + _WORD_JOINER + ch)
+        safe = safe.replace(ch * 2, ch + _WORD_JOINER + ch)  # odd runs (___)
+    return f"[{safe}]({url})"
+
+
 def render_caption(
     template: Optional[str],
     filename: str,
     filesize: int,
     duration: Optional[int] = None,
+    link: Optional[str] = None,
 ) -> str:
     """
     Fill a user/channel caption template with runtime values.
 
     Supported placeholders: {filename}, {filesize}, {duration}
     Falls back to a sensible default caption if no template is set.
+    If `link` is given the file name inside the caption becomes a clickable
+    link to it (the bot's or the user's channel). In the default caption the
+    file name is the last line of the message.
     """
     duration_str = human_time(duration) if duration else "غير متاح"
 
-    if not template:
-        return f"**{filename}**\n\n📦 الحجم: {human_bytes(filesize)}"[:MAX_CAPTION]
+    def build(name_text: str, linked: bool = False) -> str:
+        if not template:
+            # Default layout: details first, the file title LAST (under everything),
+            # as a clickable link when the user set a custom link.
+            title = name_text if linked else f"**{name_text}**"
+            return f"📦 الحجم: {human_bytes(filesize)}\n\n{title}"
+        try:
+            return template.format(
+                filename=name_text,
+                filesize=human_bytes(filesize),
+                duration=duration_str,
+            )
+        except Exception:
+            # Unknown placeholder, a stray "{" ... — fail soft.
+            return template
 
-    try:
-        text = template.format(
-            filename=filename,
-            filesize=human_bytes(filesize),
-            duration=duration_str,
-        )
-    except Exception:
-        # Unknown placeholder, a stray "{" ... — fail soft.
-        text = template
+    if link:
+        text = build(link_markup(filename, link), linked=True)
+        if len(text) <= MAX_CAPTION:
+            return text
+        # Too long once the link markup is added: a cut-off link would show as
+        # raw text, so send the plain version instead.
+    text = build(filename)
     # Telegram rejects captions over 1024 characters (the whole upload fails).
     return text[:MAX_CAPTION]
 

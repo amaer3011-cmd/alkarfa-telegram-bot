@@ -44,6 +44,7 @@ from pyrogram.types import (
 import config
 from database import db
 from handlers.guard import DEFAULT_BAN_TEXT, ban_text, describe_message, maintenance_on
+from utils import ui
 from utils.durations import human, parse_duration
 from utils.helpers import human_bytes
 from utils.keyboards import cancel_kb
@@ -201,12 +202,12 @@ def home_kb() -> InlineKeyboardMarkup:
              Btn("✏️ رسالة الحظر", callback_data="admin:bantext")],
             [Btn("📢 إدارة القنوات", callback_data="menu:channel")],
             [Btn("📄 تصدير المستخدمين (CSV)", callback_data="admin:export")],
-            [Btn("🔙 القائمة الرئيسية", callback_data="menu:main")],
+            [Btn("🏠 القائمة الرئيسية", callback_data="menu:main")],
         ]
     )
 
 
-HOME_TEXT = "👑 لوحة تحكم الكارفة\n\nاختاري اللي عايزاه:"
+HOME_TEXT = ui.plain_header("👑", "لوحة تحكم الكارفة") + "\n✨ اختاري اللي عايزاه من الأزرار 👇"
 
 
 def _back_kb(target: str = "admin:home") -> InlineKeyboardMarkup:
@@ -243,16 +244,17 @@ async def _card_text(p: db.UserProfile) -> str:
     count, total_bytes, last_file = await db.file_stats(p.user_id)
     today = await db.files_today(p.user_id)
     lines = [
-        f"👤 {_name(p)}",
-        f"🆔 {p.user_id}",
-        f"🔗 {'@' + p.username if p.username else '—'}",
-        f"📅 انضم: {_fmt(p.date_joined)}",
-        f"🕐 آخر نشاط: {_fmt(p.last_seen)}",
+        ui.plain_header("👤", _name(p)).rstrip("\n"),
         "",
-        f"📁 ملفات اتعدّلت: {max(count, p.files_count)} (النهاردة: {today})"
+        f"🆔 المعرّف ‹ {p.user_id}",
+        f"🔗 اليوزر ‹ {'@' + p.username if p.username else '—'}",
+        f"📅 انضم ‹ {_fmt(p.date_joined)}",
+        f"🕐 آخر نشاط ‹ {_fmt(p.last_seen)}",
+        ui.THIN,
+        f"📁 ملفات اتعدّلت ‹ {max(count, p.files_count)} (النهاردة: {today})"
         + (f" — {human_bytes(total_bytes)}" if total_bytes else ""),
-        f"📅 آخر ملف: {_fmt(last_file)}",
-        "",
+        f"📅 آخر ملف ‹ {_fmt(last_file)}",
+        ui.THIN,
     ]
     if p.is_banned:
         lines.append(f"🚫 محظور {_remaining(p.banned_until)}")
@@ -670,17 +672,19 @@ def register(app: Client) -> None:
     async def stats_cb(client: Client, cq: CallbackQuery) -> None:
         s = await db.get_stats()
         text = (
-            "📊 الإحصائيات\n\n"
-            f"👥 كل المستخدمين: {s['total']}\n"
-            f"🆕 جداد آخر 24 ساعة: {s['new_24h']}\n"
-            f"🗓 جداد آخر 7 أيام: {s['new_7d']}\n"
-            f"🟢 نشطين آخر 24 ساعة: {s['active_24h']}\n"
-            f"🚫 محظورين: {s['banned']}\n"
-            f"🔇 مكتومين: {s['muted']}\n"
-            f"🔒 مقيّدين: {s['restricted']}\n"
-            f"📁 ملفات اتعدّلت: {s['files']}\n"
-            f"📢 قنوات مربوطة: {s['channels']}\n"
-            f"🛠 الصيانة: {'شغّالة' if maintenance_on() else 'مقفولة'}"
+            ui.plain_header("📊", "الإحصائيات")
+            + f"\n👥 كل المستخدمين ‹ {s['total']}\n"
+            f"🟢 نشطين آخر 24 ساعة ‹ {s['active_24h']}\n"
+            f"🆕 جداد آخر 24 ساعة ‹ {s['new_24h']}\n"
+            f"🗓 جداد آخر 7 أيام ‹ {s['new_7d']}\n"
+            f"{ui.THIN}\n"
+            f"📁 ملفات اتعدّلت ‹ {s['files']}\n"
+            f"📢 قنوات مربوطة ‹ {s['channels']}\n"
+            f"{ui.THIN}\n"
+            f"🚫 محظورين ‹ {s['banned']}\n"
+            f"🔇 مكتومين ‹ {s['muted']}\n"
+            f"🔒 مقيّدين ‹ {s['restricted']}\n"
+            f"🛠 الصيانة ‹ {'شغّالة 🔴' if maintenance_on() else 'مقفولة 🟢'}"
         )
         await _edit(cq, text, _back_kb())
         await cq.answer()

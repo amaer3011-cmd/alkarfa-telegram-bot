@@ -12,7 +12,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Keep these on a volume so settings, thumbnails, covers and the Telegram
-# session survive restarts:  docker run -v botdata:/app/data ...
-# (see README "النشر"). Mount/copy bot_database.db and *.session into /app.
+# All state lives in PostgreSQL (DATABASE_URL), including the Telegram session
+# and saved images, so no volume is needed.
 CMD ["python", "main.py"]

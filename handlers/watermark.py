@@ -24,6 +24,7 @@ from config import DOWNLOAD_DIR
 from database import db
 from utils.helpers import file_extension
 from utils.integrity import verify_download
+from utils import ui
 from utils.keyboards import (
     cancel_kb,
     watermark_colors_kb,
@@ -204,10 +205,10 @@ def register(app: Client) -> None:
     @app.on_callback_query(filters.regex(r"^menu:watermark$"))
     async def menu_watermark_cb(client: Client, callback_query: CallbackQuery) -> None:
         await callback_query.message.edit_text(
-            "🧽 **العلامة المائية في ملفات PDF**\n\n"
-            "احذف أي نص أو رابط، أو **استبدله** بنص عربي بخط جميل أو برابطك الجديد. "
-            "القواعد المحفوظة هنا بتتطبّق تلقائيًا على كل PDF ترسله قبل إعادة رفعه. "
-            "اختر أحد الخيارات:",
+            ui.header("🧽", "العلامة المائية في الـ PDF")
+            + "\nاحذف أي نص أو رابط، أو **استبدله** بنص عربي بخط جميل أو برابطك الجديد.\n"
+            "القواعد هنا بتتطبّق تلقائيًا على كل PDF تبعته قبل إعادة رفعه.\n"
+            f"\n{ui.THIN}\n✨ اختر من الأزرار بالأسفل 👇",
             reply_markup=watermark_menu_kb(),
         )
         await callback_query.answer()

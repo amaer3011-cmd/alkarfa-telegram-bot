@@ -27,6 +27,7 @@ from pyrogram.types import CallbackQuery, Message
 
 from config import THUMB_DIR
 from database import db
+from utils import ui
 from utils.keyboards import cancel_kb, confirm_thumb_kb, thumb_menu_kb, thumb_saved_kb
 from utils.pdf_cover import find_image, prepare_cover_image
 from utils.state import UserState, clear_state, get_state, set_state
@@ -84,11 +85,11 @@ async def process_thumb_photo(client: Client, message: Message) -> None:
     """Called by handlers/common.py when state == AWAITING_THUMB_PHOTO."""
     user_id = message.from_user.id
     clear_state(user_id)
-    status = await message.reply_text("⏳ جارٍ حفظ الصورة المصغرة...")
+    status = await message.reply_text(ui.screen("⏳", "جارٍ الحفظ", "بجهّز صورتك المصغرة..."))
     try:
         await _save_photo_as_thumbnail(client, message, user_id)
         await status.edit_text(
-            "✅ تم حفظ الصورة المصغرة بنجاح!\n\nتحب نفس الصورة تتحط كمان في أول صفحة الـ PDF؟",
+            ui.screen("✅", "تم حفظ الصورة المصغرة", "تحب نفس الصورة تتحط كمان في أول صفحة الـ PDF؟"),
             reply_markup=thumb_saved_kb(),
         )
     except Exception as exc:
@@ -114,7 +115,7 @@ def register(app: Client) -> None:
     @app.on_callback_query(filters.regex(r"^menu:thumb$"))
     async def menu_thumb_cb(client: Client, callback_query: CallbackQuery) -> None:
         await callback_query.message.edit_text(
-            "🖼 **إدارة الصورة المصغرة**\n\nاختر أحد الخيارات التالية:",
+            ui.screen("🖼", "الصورة المصغرة", "بتتحط تلقائيًا على كل ملف يوصلك.", "اختر من الأزرار بالأسفل 👇"),
             reply_markup=thumb_menu_kb(),
         )
         await callback_query.answer()
@@ -167,11 +168,11 @@ def register(app: Client) -> None:
             await callback_query.answer("انتهت صلاحية هذا الطلب.", show_alert=True)
             return
 
-        await callback_query.message.edit_text("⏳ جارٍ حفظ الصورة المصغرة...")
+        await callback_query.message.edit_text(ui.screen("⏳", "جارٍ الحفظ", "بجهّز صورتك المصغرة..."))
         try:
             await _save_photo_as_thumbnail(client, source_message, user_id)
             await callback_query.message.edit_text(
-                "✅ تم حفظ الصورة المصغرة بنجاح!\n\nتحب نفس الصورة تتحط كمان في أول صفحة الـ PDF؟",
+                ui.screen("✅", "تم حفظ الصورة المصغرة", "تحب نفس الصورة تتحط كمان في أول صفحة الـ PDF؟"),
                 reply_markup=thumb_saved_kb(),
             )
         except Exception as exc:

@@ -26,6 +26,7 @@ from pyrogram.types import CallbackQuery, Message
 from config import COVER_DIR
 from database import db
 from handlers.thumbnail import process_thumbnail, thumb_source_path, thumb_source_stem
+from utils import ui
 from utils.keyboards import cancel_kb, cover_menu_kb, cover_saved_kb
 from config import THUMB_DIR
 from utils.pdf_cover import (
@@ -85,12 +86,12 @@ def _menu_text(user) -> str:
     enabled = bool(user.cover_enabled) if user else True
     mode = normalize_mode(user.cover_mode if user else None)
     return (
-        "📄 **صورة أول صفحة في ملفات الـ PDF**\n\n"
-        "اختر صورة، وسيضعها البوت تلقائيًا في أول صفحة من أي PDF ترسله.\n\n"
-        f"**الصورة:** {'✅ محفوظة' if has else '❌ لا توجد'}\n"
-        f"**التطبيق التلقائي:** {'🟢 مفعّل' if enabled else '⚪️ متوقف'}\n"
-        f"**الوضع:** {MODE_LABELS[mode]}\n\n"
-        "💡 يمكنك أيضًا اختيار صورة مختلفة لملف واحد فقط من أزرار الملف نفسه."
+        ui.header("📄", "صورة أول صفحة في الـ PDF")
+        + "\nاختر صورة وهتتحط تلقائيًا في أول صفحة من أي PDF تبعته.\n\n"
+        + ui.row("🖼", "الصورة", "✅ محفوظة" if has else "❌ لا توجد") + "\n"
+        + ui.row("⚡️", "التطبيق التلقائي", "🟢 مفعّل" if enabled else "⚪️ متوقف") + "\n"
+        + ui.row("📌", "الوضع", MODE_LABELS[mode])
+        + f"\n\n{ui.THIN}\n💡 تقدر تختار صورة مختلفة لملف واحد بس من أزرار الملف نفسه."
     )
 
 

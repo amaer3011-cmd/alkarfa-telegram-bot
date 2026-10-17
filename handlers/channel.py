@@ -34,6 +34,7 @@ from config import COVER_DIR, DOWNLOAD_DIR
 from database import db
 from handlers.thumbnail import process_thumbnail
 from utils.helpers import file_extension, get_media_duration, render_caption
+from utils import ui
 from utils.keyboards import cancel_kb, channel_menu_kb, main_menu_kb
 from handlers.cover import save_cover_from_message
 from utils.pdf_pipeline import process_pdf
@@ -266,7 +267,7 @@ def register(app: Client) -> None:
             await callback_query.answer("⛔ غير مصرح لك باستخدام هذه الميزة.", show_alert=True)
             return
         await callback_query.message.edit_text(
-            "📢 **إدارة القناة**\n\nاختر أحد الخيارات التالية:",
+            ui.screen("📢", "إدارة القناة", "اربط قناتك وخلّي كل ملف يتنشر فيها يتنسق تلقائيًا.", "اختر من الأزرار بالأسفل 👇"),
             reply_markup=channel_menu_kb(),
         )
         await callback_query.answer()
@@ -397,8 +398,11 @@ def register(app: Client) -> None:
                         cover_path=cover if cover and os.path.exists(cover) else None,
                     )
 
+                # The link of whoever bound the channel (their "🔗 الرابط المخصص").
+                binder = await db.get_user(channel.bound_by) if channel.bound_by else None
                 caption = render_caption(
                     channel.channel_caption_template,
+                    link=binder.custom_link if binder else None,
                     filename=original_name,
                     filesize=os.path.getsize(file_path),
                     duration=await asyncio.get_running_loop().run_in_executor(None, get_media_duration, file_path),

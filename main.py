@@ -14,11 +14,11 @@ import logging
 from pyrogram import Client
 
 import config
-from utils import button_colors, fast_transfer
-from database.db import init_db
+from utils import button_colors, fast_transfer, session_sync
+from database.db import close_db, init_db
 from handlers import (
-    admin, caption, channel, common, cover, guard, inbox, rename, start, thumbnail, video,
-    watermark,
+    admin, caption, channel, common, cover, guard, inbox, link, rename, start, studio, thumbnail,
+    video, watermark,
 )
 
 button_colors.install()  # colour every inline button (needs Kurigram)
@@ -58,6 +58,8 @@ def build_client() -> Client:
     start.register(app)
     thumbnail.register(app)
     caption.register(app)
+    link.register(app)
+    studio.register(app)
     watermark.register(app)
     video.register(app)
     cover.register(app)
@@ -74,7 +76,8 @@ async def _startup() -> None:
             "API_ID, API_HASH and BOT_TOKEN must be set (env vars or .env file)."
         )
     await init_db()
-    logger.info("Database initialised.")
+    logger.info("Database initialised (PostgreSQL).")
+    await session_sync.restore()  # bring back the Telegram session before the client starts
     if not config.OWNER_IDS:
         logger.warning("OWNER_IDS is empty: the admin panel is disabled for everybody.")
 
@@ -104,8 +107,17 @@ def main() -> None:
     try:
         loop.run_until_complete(_startup())
         app = build_client()
+        backup_task = loop.create_task(session_sync.run_forever())
         logger.info("Starting bot...")
-        app.run()
+        try:
+            app.run()
+        finally:
+            backup_task.cancel()
+            try:  # last chance to save the session + close the pool cleanly
+                loop.run_until_complete(session_sync.backup())
+            except Exception:
+                logger.exception("Final session backup failed")
+            loop.run_until_complete(close_db())
     finally:
         loop.close()
 

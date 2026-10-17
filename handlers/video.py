@@ -31,6 +31,7 @@ from PIL import Image
 import config
 from database import db
 from utils import video_edit as ve
+from utils import ui
 from utils.keyboards import cancel_kb
 from utils.state import UserState, clear_state, set_state
 
@@ -86,16 +87,17 @@ async def _menu(user_id: int) -> Tuple[str, InlineKeyboardMarkup]:
     vs = await db.get_video_settings(user_id)
     state = "✅ مفعّلة" if (vs.wm_enabled and wm_configured(vs)) else "⚪️ متوقفة"
     text = (
-        "🎬 إعدادات الفيديو\n\n"
-        f"💧 العلامة المائية: {state}\n"
+        ui.plain_header("🎬", "إعدادات الفيديو")
+        + f"\n💧 العلامة المائية ‹ {state}\n"
         f"   • {_wm_summary(vs)}\n"
         f"   • المكان: {ve.POSITION_LABELS.get(vs.wm_position, vs.wm_position)}"
         f" | الحجم: {ve.SIZE_LABELS.get(vs.wm_size, vs.wm_size)}"
         f" | الشفافية: {vs.wm_opacity}%\n\n"
-        f"🏷 قالب العنوان: {vs.title_template or 'مفيش'}\n"
-        f"📺 العنوان على الشاشة (أول {config.TITLE_OVERLAY_SECONDS} ثواني): "
+        f"{ui.THIN}\n"
+        f"🏷 قالب العنوان ‹ {vs.title_template or 'مفيش'}\n"
+        f"📺 العنوان على الشاشة (أول {config.TITLE_OVERLAY_SECONDS} ثواني) ‹ "
         f"{'✅' if vs.title_overlay else '⚪️'}\n\n"
-        "أي فيديو تبعتيه هتلاقي تحته أزرار تتحكمي فيها في العلامة والعنوان "
+        "💡 أي فيديو تبعتيه هتلاقي تحته أزرار تتحكمي بيها في العلامة والعنوان "
         "للفيديو ده بس."
     )
     toggle = "💧 العلامة المائية: مفعّلة ✅" if (vs.wm_enabled and wm_configured(vs)) else "💧 العلامة المائية: متوقفة ⚪️"
@@ -112,7 +114,7 @@ async def _menu(user_id: int) -> Tuple[str, InlineKeyboardMarkup]:
             [Btn("🏷 قالب العنوان الافتراضي", callback_data="video:title_tpl")],
             [Btn(f"📺 العنوان على الشاشة: {'✅' if vs.title_overlay else '⚪️'}",
                  callback_data="video:title_overlay")],
-            [Btn("🔙 القائمة الرئيسية", callback_data="menu:main")],
+            [Btn("🏠 القائمة الرئيسية", callback_data="menu:main")],
         ]
     )
     return text, kb

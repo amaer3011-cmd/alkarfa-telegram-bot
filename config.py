@@ -47,14 +47,38 @@ DEVELOPER_URL: str = f"https://t.me/{DEVELOPER_USERNAME}"
 # Time zone used when the admin panel prints dates.
 TIMEZONE: str = os.getenv("TIMEZONE", "Africa/Cairo")
 
-# Where everything that must survive a restart lives (database, Telegram
-# session, thumbnails, covers, logos). On Railway mount a Volume at /data and
-# set DATA_DIR=/data (Railway also sets RAILWAY_VOLUME_MOUNT_PATH for you).
+# Working folder for the Telegram session file, thumbnails, covers and logos.
+# Everything important is ALSO mirrored into PostgreSQL (see database/db.py),
+# so a Railway Volume is optional. If you do mount one, set DATA_DIR to it
+# (Railway also sets RAILWAY_VOLUME_MOUNT_PATH for you).
 DATA_DIR: str = os.getenv("DATA_DIR") or os.getenv("RAILWAY_VOLUME_MOUNT_PATH") or "."
 os.makedirs(DATA_DIR, exist_ok=True)
 
+
+def _database_url() -> str:
+    """PostgreSQL connection string (Railway: reference the Postgres service's
+    DATABASE_URL variable from the bot service)."""
+    url = (
+        os.getenv("DATABASE_URL")
+        or os.getenv("DATABASE_PRIVATE_URL")
+        or os.getenv("DATABASE_PUBLIC_URL")
+        or ""
+    ).strip()
+    if not url:
+        host, name, user = os.getenv("PGHOST"), os.getenv("PGDATABASE"), os.getenv("PGUSER")
+        if host and name and user:
+            pwd = os.getenv("PGPASSWORD", "")
+            port = os.getenv("PGPORT", "5432")
+            url = f"postgresql://{user}:{pwd}@{host}:{port}/{name}"
+    # asyncpg wants a plain postgres:// or postgresql:// scheme.
+    for prefix in ("postgresql+asyncpg://", "postgresql+psycopg2://", "postgresql+psycopg://"):
+        if url.startswith(prefix):
+            url = "postgresql://" + url[len(prefix):]
+    return url
+
+
 # Internal defaults
-DB_URL: str = os.path.join(DATA_DIR, "bot_database.db")
+DATABASE_URL: str = _database_url()
 DOWNLOAD_DIR: str = "downloads"  # temporary files only (not persisted)
 THUMB_DIR: str = os.path.join(DATA_DIR, "thumbnails")
 COVER_DIR: str = os.path.join(DATA_DIR, "covers")

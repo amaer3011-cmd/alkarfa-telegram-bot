@@ -19,17 +19,15 @@ from pyrogram.errors import FloodWait, MessageNotModified
 from pyrogram.types import Message
 
 from config import PROGRESS_EDIT_INTERVAL
+from utils import ui
 from utils.helpers import human_bytes, human_time
 
 # Unicode block characters used to render the progress bar.
-_FILLED = "█"
-_EMPTY = "░"
 _BAR_LENGTH = 12
 
 
 def _make_bar(percentage: float) -> str:
-    filled_len = int(_BAR_LENGTH * percentage / 100)
-    return _FILLED * filled_len + _EMPTY * (_BAR_LENGTH - filled_len)
+    return ui.bar(percentage, _BAR_LENGTH)
 
 
 class Progress:
@@ -66,12 +64,13 @@ class Progress:
         percentage = (current / total) * 100 if total else 0
         eta = (total - current) / speed if speed > 0 else 0
 
-        text = (
-            f"**{self.action}...**\n\n"
-            f"`[{_make_bar(percentage)}]` {percentage:.1f}%\n\n"
-            f"**تم النقل:** {human_bytes(current)} / {human_bytes(total)}\n"
-            f"**السرعة:** {human_bytes(speed)}/ث\n"
-            f"**الوقت المتبقي:** {human_time(eta)}"
+        text = ui.card(
+            "⚡️",
+            self.action,
+            percentage,
+            f"📦 **الحجم** ‹ {human_bytes(current)} / {human_bytes(total)}\n"
+            f"🚀 **السرعة** ‹ {human_bytes(speed)}/ث\n"
+            f"⏱ **المتبقي** ‹ {human_time(eta)}",
         )
 
         try:
@@ -128,10 +127,11 @@ class WatermarkProgress:
         self.last_edit_time = now
 
         percentage = (pages_done / total_pages) * 100 if total_pages else 0
-        text = (
-            f"**{self.action}...**\n\n"
-            f"`[{_make_bar(percentage)}]` {percentage:.1f}%\n\n"
-            f"**الصفحات المُعالجة:** {pages_done} / {total_pages}"
+        text = ui.card(
+            "🧽",
+            self.action,
+            percentage,
+            f"📚 **الصفحات** ‹ {pages_done} / {total_pages}",
         )
         # Fire-and-forget: scheduling from a worker thread, so we can't
         # await here. `_safe_edit` swallows its own errors.
@@ -165,10 +165,11 @@ class VideoProgress:
         elapsed = max(now - self.start_time, 1e-6)
         speed = done / elapsed  # seconds of video per second
         eta = (total - done) / speed if speed > 0 else 0
-        text = (
-            f"**{self.action}...**\n\n"
-            f"`[{_make_bar(percentage)}]` {percentage:.1f}%\n\n"
-            f"**الوقت المتبقي:** {human_time(eta)}"
+        text = ui.card(
+            "🎬",
+            self.action,
+            percentage,
+            f"⏱ **المتبقي** ‹ {human_time(eta)}",
         )
         try:
             await self.status_message.edit_text(text)

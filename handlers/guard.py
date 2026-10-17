@@ -36,7 +36,7 @@ RESTRICTED_TEXT = "🔒 الميزة دي متقفلة عليك دلوقتي �
 # Button groups that count as "settings" for the `settings` restriction.
 _SETTINGS_PREFIXES = (
     "menu:thumb", "menu:caption", "menu:cover", "menu:watermark", "menu:video", "menu:channel",
-    "thumb:", "caption:", "watermark:", "cover:", "video:", "channel:",
+    "menu:link", "thumb:", "caption:", "watermark:", "cover:", "video:", "channel:", "link:",
 )
 
 # Don't write to the database on every single message of the same user.
@@ -147,7 +147,9 @@ def _check_callback(cq: CallbackQuery) -> tuple:
     data = cq.data or ""
     if "settings" in flags and data.startswith(_SETTINGS_PREFIXES):
         return "تقييد", RESTRICTED_TEXT
-    if "files" in flags and data.startswith("rename:"):
+    if "files" in flags and data.startswith(("rename:", "studio:")):
+        return "تقييد", RESTRICTED_TEXT
+    if "pdf" in flags and data.startswith("studio:"):
         return "تقييد", RESTRICTED_TEXT
     return None, None
 

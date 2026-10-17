@@ -13,6 +13,7 @@ from pyrogram.types import CallbackQuery, Message
 
 import config
 from database import db
+from utils import ui
 from utils.keyboards import help_kb, main_menu_kb
 from utils.state import clear_state
 
@@ -29,35 +30,38 @@ def welcome_text() -> str:
     """The /start message. The owner can override it from the admin panel."""
     return db.get_setting("welcome_text") or DEFAULT_WELCOME_TEXT
 
+def menu_text() -> str:
+    """The welcome message (kept exactly as written) + a tidy footer."""
+    return f"{welcome_text()}\n\n{ui.THIN}\n✨ اختار من القائمة تحت 👇"
+
+
 HELP_TEXT = (
-    "**ℹ️ كيفية استخدام البوت**\n\n"
+    ui.header("💎", "دليل الاستخدام")
+    + "\n"
     "📁 **إعادة تسمية ملف**\n"
-    "أرسل أي مستند أو فيديو أو ملف صوتي، ثم اختر «إعادة تسمية» واكتب "
-    "الاسم الجديد، أو اختر «الاحتفاظ بالاسم الحالي».\n\n"
+    "ابعت أي مستند أو فيديو أو ملف صوتي، واختار «إعادة تسمية» أو «الاحتفاظ بالاسم».\n\n"
     "🖼 **الصورة المصغرة**\n"
-    "من قائمة «الصورة المصغرة» يمكنك تعيين صورة أو عرضها أو حذفها. سيتم "
-    "تصغيرها تلقائيًا وإرفاقها بكل ملف يتم إرساله لك.\n\n"
+    "اضبط صورة وهتتحط تلقائيًا على كل ملف يوصلك.\n\n"
     "✏️ **التسمية التوضيحية**\n"
-    "اضبط نص تسمية توضيحية مخصص من قائمة «التسمية التوضيحية». "
-    "المتغيرات المتاحة:\n"
-    "`{filename}` — اسم الملف\n"
-    "`{filesize}` — حجم الملف\n"
-    "`{duration}` — مدة الفيديو أو الصوت\n\n"
+    "نص مخصص تحت كل ملف، وتقدر تستخدم:\n"
+    "`{filename}` اسم الملف  •  `{filesize}` الحجم  •  `{duration}` المدة\n\n"
+    f"{ui.THIN}\n"
     "📄 **صورة أول صفحة في الـ PDF**\n"
-    "من «صورة أول صفحة في الـ PDF» احفظ صورة ليضعها البوت تلقائيًا في أول صفحة "
-    "من أي PDF ترسله (صفحة جديدة أو استبدال الأولى). ولو أرسلت PDF ستجد زر "
-    "اختيار صورة لهذا الملف فقط، وتغيير الوضع، أو تخطي الصورة.\n\n"
-    "🧽 **إزالة العلامة المائية من PDF**\n"
-    "من قائمة «إزالة العلامة المائية» اضبط الأنماط (نص/regex/رابط) المراد "
-    "إزالتها، وسيتم تطبيقها تلقائيًا على كل ملف PDF ترسله قبل إعادة رفعه.\n\n"
+    "احفظ صورة وهتتحط في أول صفحة (صفحة جديدة أو استبدال الأولى)، "
+    "وتقدر تختار صورة لملف واحد بس أو تتخطاها.\n\n"
+    "🧽 **العلامة المائية للـ PDF**\n"
+    "حدد النصوص أو الروابط اللي تتشال أو تتبدّل، وتتطبق تلقائيًا قبل إعادة الرفع.\n\n"
+    "✨ **تحسين جودة الـ PDF**\n"
+    "أصغر حجم بأعلى جودة، والنصوص والرسومات بتفضل حادة.\n\n"
+    "🧰 **استوديو PDF**\n"
+    "دمج • تقسيم • استخراج • ترتيب • تدوير • ضغط • صور إلى PDF.\n\n"
+    f"{ui.THIN}\n"
     "🎬 **الفيديو**\n"
-    "من «إعدادات الفيديو» اضبط علامة مائية (نص أو لوجو، ومكانها وحجمها وشفافيتها) "
-    "وعنوانًا افتراضيًا. وعند إرسال فيديو ستجد أزرارًا لتفعيل/إلغاء العلامة وكتابة "
-    "عنوان لهذا الفيديو فقط.\n\n"
+    "علامة مائية (نص أو لوجو) وعنوان افتراضي، ولكل فيديو تقدر تفعّل أو تلغي أو تكتب عنوان خاص به.\n\n"
+    "🔗 **الرابط المخصص**\n"
+    "احفظ رابط البوت أو قناتك، واسم الملف يظهر كلينك قابل للضغط.\n\n"
     "📢 **وضع القناة (للمشرفين)**\n"
-    "من قائمة «إدارة القناة» يمكن للمشرف ربط البوت بقناة ليقوم تلقائيًا "
-    "بإعادة تنسيق كل ملف يُنشر فيها (صورة مصغرة + تسمية توضيحية موحّدة، "
-    "مع إزالة العلامة المائية ووضع صورة أول صفحة لملفات PDF إذا ضُبطت للقناة)."
+    "اربط البوت بقناة وهيعيد تنسيق كل ملف يتنشر فيها تلقائيًا."
 )
 
 
@@ -73,7 +77,7 @@ def register(app: Client) -> None:
         uid = message.from_user.id
         clear_state(uid)  # /start also leaves any open flow (e.g. the owner's chat mode)
         await message.reply_text(
-            welcome_text(),
+            menu_text(),
             reply_markup=main_menu_kb(is_admin(uid), config.is_owner(uid)),
         )
 
@@ -81,7 +85,7 @@ def register(app: Client) -> None:
     async def menu_main_cb(client: Client, callback_query: CallbackQuery) -> None:
         uid = callback_query.from_user.id
         await callback_query.message.edit_text(
-            welcome_text(),
+            menu_text(),
             reply_markup=main_menu_kb(is_admin(uid), config.is_owner(uid)),
         )
         await callback_query.answer()

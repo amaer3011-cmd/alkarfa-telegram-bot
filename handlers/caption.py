@@ -13,6 +13,7 @@ from pyrogram import Client, filters
 from pyrogram.types import CallbackQuery, Message
 
 from database import db
+from utils import ui
 from utils.keyboards import cancel_kb, caption_menu_kb
 from utils.state import UserState, clear_state, set_state
 
@@ -24,8 +25,10 @@ _PLACEHOLDER_HELP = (
     "`{filename}` — اسم الملف\n"
     "`{filesize}` — حجم الملف\n"
     "`{duration}` — المدة (للفيديو/الصوت)\n\n"
+    "💡 ضع `{filename}` في **آخر سطر** ليظهر عنوان الملف تحت في الرسالة "
+    "(وجواه اللينك المخصص لو ضابطه).\n\n"
     "**مثال:**\n"
-    "🎬 {filename}\n\n📦 {filesize} | ⏱ {duration}"
+    "📦 {filesize} | ⏱ {duration}\n\n{filename}"
 )
 
 
@@ -41,7 +44,7 @@ def register(app: Client) -> None:
     @app.on_callback_query(filters.regex(r"^menu:caption$"))
     async def menu_caption_cb(client: Client, callback_query: CallbackQuery) -> None:
         await callback_query.message.edit_text(
-            "✏️ **إدارة التسمية التوضيحية**\n\nاختر أحد الخيارات التالية:",
+            ui.screen("✏️", "التسمية التوضيحية", "نص مخصص يظهر تحت كل ملف يوصلك.", "اختر من الأزرار بالأسفل 👇"),
             reply_markup=caption_menu_kb(),
         )
         await callback_query.answer()

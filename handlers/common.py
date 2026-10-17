@@ -15,7 +15,8 @@ import logging
 from pyrogram import Client, filters
 from pyrogram.types import CallbackQuery, Message
 
-from handlers import admin, caption, channel, cover, rename, thumbnail, video, watermark
+from handlers import admin, caption, channel, cover, link, rename, studio, thumbnail, video, watermark
+from utils import ui
 from utils.keyboards import cancel_kb
 from utils.state import UserState, clear_state, get_state
 
@@ -46,6 +47,10 @@ _TEXT_HANDLERS = {
     UserState.AWAITING_VIDEO_WM_TEXT: video.process_wm_text,
     UserState.AWAITING_VIDEO_TITLE_TEMPLATE: video.process_title_template,
     UserState.AWAITING_FILE_VIDEO_TITLE: rename.process_file_video_title,
+    UserState.AWAITING_CUSTOM_LINK: link.process_link_text,
+    UserState.STUDIO_COLLECT: studio.process_stray_text,
+    UserState.STUDIO_WAIT_PDF: studio.process_stray_text,
+    UserState.STUDIO_WAIT_TEXT: studio.process_text,
 }
 
 # state -> function that consumes the image the user sends next
@@ -56,6 +61,9 @@ _IMAGE_HANDLERS = {
     UserState.AWAITING_CHANNEL_COVER_PHOTO: channel.process_channel_cover_photo,
     UserState.AWAITING_FILE_COVER: rename.process_file_cover,
     UserState.AWAITING_VIDEO_WM_IMAGE: video.process_wm_image,
+    UserState.STUDIO_COLLECT: studio.on_photo,
+    UserState.STUDIO_WAIT_PDF: studio.on_photo,
+    UserState.STUDIO_WAIT_TEXT: studio.on_photo,
     # the owner may broadcast / DM a photo too
     UserState.AWAITING_ADMIN_BROADCAST: admin.process_broadcast,
     UserState.AWAITING_ADMIN_DM: admin.process_dm,
@@ -79,7 +87,7 @@ def register(app: Client) -> None:
         user_id = cq.from_user.id
         clear_state(user_id)
         rename.clear_pending(user_id)
-        await cq.message.edit_text("❌ تم الإلغاء.")
+        await cq.message.edit_text(ui.cancelled())
         await cq.answer()
 
     @app.on_message(filters.private & filters.text)
